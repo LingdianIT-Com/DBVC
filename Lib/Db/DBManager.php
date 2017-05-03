@@ -1,5 +1,7 @@
 <?php
 namespace Lib\Db;
+
+
 /**
  * DB管理器.
  */
@@ -11,9 +13,9 @@ class DBManager
 
     private function __construct()
     {
-        $db_config = json_decode(file_get_contents(dirname(__FILE__).DIRECTORY_SEPARATOR.'db_config.json'));
-        self::$_db_name = $db_config->dbName;
-        self::$_db = mysqli_connect($db_config->host, $db_config->user, $db_config->pwd, $db_config->dbName) or die('連接資料庫錯誤，請檢查使用者帳戶及密碼是否有權限.');
+        $db_config = DB_CONFIG;
+        self::$_db_name = $db_config['dbName'];
+        self::$_db = mysqli_connect($db_config['host'], $db_config['user'], $db_config['pwd'], $db_config['dbName']) or die('連接資料庫錯誤，請檢查使用者帳戶及密碼是否有權限.');
         mysqli_query(self::$_db, "SET NAMES 'utf8'");
     }
 
@@ -29,6 +31,12 @@ class DBManager
         }
 
         return self::$_instance;
+    }
+    
+    public static function getDb() 
+    {
+        self::getInstance();
+        return self::$_db;
     }
 
     /**

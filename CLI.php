@@ -1,6 +1,6 @@
 <?php
 
-require 'vendor/autoload.php';
+$loader = require 'vendor/autoload.php';
 
 use Lib\Builder\BaseFileBuilder;
 use Lib\VersionControl\VCManager;
@@ -120,7 +120,35 @@ class CLI
 
         }
     }
+    
+    public function needUpdate()
+    {
+        $this->_check_dbvc();
+        $localVersion = VCManager::getNowVersion();
+        $latestVersion = VCManager::getLatestVersion();
+        if ($localVersion !== $latestVersion) {
+           echo "needupate";
+        }
+        return false;
+    }
 }
+
+define('OUT_FOLDER',dirname(dirname(__FILE__)).'/db/VCFiles/');
+$env = getenv("DEPLOY_ENV");
+if (empty($env)) {
+    $env = "local";
+}
+$env = strtolower($env);
+$appConfig = require dirname(dirname(__FILE__)).'/app/Conf/'.$env."/config.php";
+$transferDb = array(
+    "host" => $appConfig['DB_HOST'],
+	"user" => $appConfig['DB_USER'],
+	"pwd" =>  $appConfig['DB_PWD'],
+	"dbName" => $appConfig['DB_NAME']
+);
+define('DB_CONFIG', $transferDb);
+$loadPath = dirname(dirname(__FILE__)).'/db/VCFiles/';
+$loader->addPsr4('VCFiles\\', $loadPath);
 
 $cli = new CLI();
 $command = $argv[1];

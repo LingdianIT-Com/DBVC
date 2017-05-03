@@ -29,10 +29,10 @@
 
 <div data-am-sticky>
     <div class="am-btn-group am-animation-slide-top">
-        <button type="button" class="am-btn am-btn-primary am-round btn-submit-init"
+<!--        <button type="button" class="am-btn am-btn-primary am-round btn-submit-init"
                 data-am-popover="{theme: 'warning sm',content: '將資料庫版本還原到引入版本之前的結構', trigger: 'hover focus'}"
                 data-am-modal="{target: '#modal-handling'}">初始化
-        </button>
+        </button>-->
         <button type="button" class="am-btn am-btn-primary am-round btn-submit-auto_update"
                 data-am-popover="{theme: 'warning sm',content: '自動更新至最新的開發版本', trigger: 'hover focus'}"
                 data-am-modal="{target: '#modal-handling'}">自動更新

@@ -4,7 +4,7 @@ namespace Lib\VersionControl;
 
 
 use Lib\Db\DBManager;
-
+use Lib\Common\Log;
 
 /**
  * 錯誤訊息標示
@@ -51,7 +51,7 @@ class VCManager
      */
     private static function _getVersionFileNames()
     {
-        $file_path = dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . "VCFiles";
+        $file_path = defined('OUT_FOLDER')?OUT_FOLDER:dirname(dirname(dirname(__FILE__))) . DIRECTORY_SEPARATOR . "VCFiles";
         $file_array = self::_scan_dir($file_path);
         return $file_array;
     }
@@ -247,26 +247,48 @@ class VCManager
             return array(self::_getMessage(VCErrorMsg::IS_LATEST_VERSION));
         }
 
-
         //执行资料库结构更新程序
         foreach ($file_arr as $key => $value) {
+            Log::getIns()->info("excute sql file ".$value);
             $version_class_name = "VCFiles\\VC_{$value}";
             $version_file = new $version_class_name();
-            $result = DBManager::updateSql($version_file->up());
-            if ($result) {
+            $upSql = $version_file->up();
+            $mutlSql = explode(";", $upSql);
+            if (!empty($mutlSql)) {
+                $db = DBManager::getDb();
+                $db->begin_transaction(MYSQLI_TRANS_START_READ_ONLY);
+                foreach($mutlSql as $sql) {
+                    if (empty($sql)) {
+                        continue;
+                    }
+                    $upRs = $db->query($sql);
+                    if (false === $upRs) {
+                        $db->rollback();
+                        $return_message[] = array(0, $sql." update fail,all sql rollback \n");
+                        return $return_message;
+                    } else {
+                        $return_message[] = array(1, $sql." update success  \n");
+                        Log::getIns()->info("$sql excute success ");
+                    }
+                }
                 $time = time();
                 $sql = "INSERT INTO db_vc(vc_file,create_date,create_author,v_comment) VALUES('{$value}','{$time}','{$version_file->author()}','{$version_file->comment()}');";
-                $dbvc_log = DBManager::updateSql($sql);
+                $dbvc_log =  $db->query($sql);
                 if ($dbvc_log) {
+                    Log::getIns()->info("$sql excute success ");
                     self::_setNowVersion();
-                    $return_message[] = array(1, "Version:{$value} update success!\n");
+                    $return_message[] = array(1, "$sql excute success \n");
                 } else {
+                    $db->rollback();
+                    Log::getIns()->error("$sql excute fail ");
                     $return_message[] = self::_getMessage(VCErrorMsg::SAVE_DBVC_LOG_FAIL);
+                    return $return_message;
                 }
+                $db->commit();
+                $return_message[] = array(1, "Version:{$value} update success!\n");
             } else {
-                $return_message[] = self::_getMessage(VCErrorMsg::UPDATE_FAIL);
+                 $return_message[] = array(0, "sql is empty !\n");
             }
-
         }
         return $return_message;
     }
@@ -324,20 +346,43 @@ class VCManager
         foreach ($file_arr as $key => $value) {
             $version_class_name = "VCFiles\\VC_{$value}";
             $version_file = new $version_class_name();
-            $result = DBManager::updateSql($version_file->down());
-            if ($result) {
-                $sql = "DELETE FROM db_vc WHERE vc_file = '{$value}';";
-                $dbvc_log = DBManager::updateSql($sql);
-                if ($dbvc_log) {
-                    self::_setNowVersion();
-                    $return_message[] = array(1, "Version:{$value} down success!\n");
-                } else {
-                    $return_message[] = self::_getMessage(VCErrorMsg::SAVE_DBVC_LOG_FAIL);
+            
+            $downSql = $version_file->down();
+            $mutlSql = explode(";", $downSql);
+            if (!empty($mutlSql)) {
+                $db = DBManager::getDb();
+                $db->begin_transaction(MYSQLI_TRANS_START_READ_ONLY);
+                foreach($mutlSql as $sql) {
+                    if (empty($sql)) {
+                        continue;
+                    }
+                    $upRs = $db->query($sql);
+                    if (false === $upRs) {
+                        $db->rollback();
+                        $return_message[] = array(0, "sql $sql update fail,all sql rollback \n");
+                        Log::getIns()->error("$sql excute fail ");
+                        return $return_message;
+                    } else {
+                        $return_message[] = array(1, "$sql update success");
+                        Log::getIns()->info("$sql excute success ");
+                    }
                 }
+                $sql = "DELETE FROM db_vc WHERE vc_file = '{$value}';";
+                $dbvc_log =  $db->query($sql);
+                if ($dbvc_log) {
+                    Log::getIns()->info("$sql excute success ");
+                    self::_setNowVersion();
+                    $return_message[] = array(1, "$sql excute success\n");
+                } else {
+                    $db->rollback();
+                    $return_message[] = self::_getMessage(VCErrorMsg::SAVE_DBVC_LOG_FAIL);
+                    return $return_message;
+                }
+                $db->commit();
+                $return_message[] = array(1, "Version:{$value} update success!\n");
             } else {
-                $return_message[] = self::_getMessage(VCErrorMsg::UPDATE_FAIL);
+                $return_message[] = array(0, "sql is empty !\n");
             }
-
         }
         return $return_message;
     }
@@ -368,17 +413,14 @@ class VCManager
         //取得正确的目标版本号
         $target_version = $file_arr[0];
 
-
         //过滤版本号必须小於等於本地资料库版本
         $file_arr = array_filter($file_arr, function ($versionNo) use ($local_now_version) {
             return $versionNo <= $local_now_version;
         });
-
         //正常情况过滤版本号必须大於目标版本。但当本地版本将目标版本一极时，则过滤版本号要等於目标版本
         $file_arr = array_filter($file_arr, function ($versionNo) use ($target_version) {
             return $versionNo >= $target_version;
         });
-
         krsort($file_arr);
 
         //执行资料库结构更新程序
