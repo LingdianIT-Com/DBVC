@@ -9,13 +9,12 @@
     }
   ],
   "require": {
-    "monolog/monolog": "^1.17"
+    "monolog/monolog": "1.17.2"
   },
   "autoload": {
     "psr-4": {
       "Lib\\": "Lib",
-      "Controller\\": "Controller",
-      "VCFiles\\": "VCFiles"
+      "Controller\\": "Controller"
     }
   }
 }
